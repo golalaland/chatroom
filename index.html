@@ -3,64 +3,114 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chat Room</title>
-<style>
-  body { font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-  .hidden { display: none; }
-  #login-container, #chat-container { width: 100%; max-width: 500px; }
-  #login-container { background: #2c2c2c; padding: 20px; border-radius: 8px; }
-  #chat-container { display: flex; flex-direction: column; gap: 10px; }
-  #chat-feed { height: 400px; overflow-y: auto; background: #2c2c2c; padding: 10px; border-radius: 8px; }
-  .message { margin-bottom: 8px; }
-  #chat-input { display: flex; gap: 5px; }
-  #chat-input input { flex: 1; padding: 8px; border-radius: 4px; border: none; }
-  #chat-input button, #login-container button, #logout-btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; background: #ff4b2b; color: #fff; }
-  #reward-popup { position: fixed; top: 20px; right: 20px; background: gold; color: black; padding: 10px 20px; border-radius: 6px; display: none; }
-  .rooms { display: flex; gap: 5px; margin-bottom: 10px; }
-  .rooms button { flex: 1; }
-</style>
+<title>Xixi Chatroom</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js" defer></script>
 </head>
 <body>
-
-<!-- Login / Signup Popup -->
-<div id="login-container">
-  <h2>Login / Sign Up</h2>
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
-  <div id="login-msg" style="color: red; margin:5px 0;"></div>
-  <div style="display:flex; gap:5px;">
-    <button id="login-btn">Login</button>
-    <button id="signup-btn">Sign Up</button>
+  <!-- LOGIN / SIGNUP -->
+  <div id="login-container">
+    <h2>Login / Signup</h2>
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <div id="login-buttons">
+      <button id="login-btn">Login</button>
+      <button id="signup-btn">Sign Up</button>
+    </div>
+    <p id="login-msg"></p>
   </div>
-</div>
 
-<!-- Chat Container -->
-<div id="chat-container" class="hidden">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h3>Chat Room</h3>
+  <!-- CHAT -->
+  <div id="chat-container" class="hidden">
+    <div id="rooms">
+      <button class="room-btn" data-room="music">For Love of Music</button>
+      <button class="room-btn" data-room="money">Let's Talk Money</button>
+    </div>
+
+    <div id="pinned-message"></div>
+
+    <div id="chat-feed"></div>
+
+    <div id="chat-input">
+      <input type="text" id="message" placeholder="Type a message...">
+      <button id="send-btn">Send</button>
+    </div>
+
+    <div id="stars-display">Stars: <span id="stars-count">0</span></div>
     <button id="logout-btn">Logout</button>
   </div>
 
-  <div class="rooms">
-    <button class="room-btn" data-room="music">Music</button>
-    <button class="room-btn" data-room="money">Money</button>
-    <button class="room-btn" data-room="general">General</button>
-  </div>
+  <div id="reward-popup" class="hidden">🎉 You earned 1 Star!</div>
+</body>
+</html>
+body {
+  font-family: Arial, sans-serif;
+  background: #1e1e1e;
+  color: #fff;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
 
-  <div id="chat-feed"></div>
+.hidden { display: none; }
 
-  <div id="chat-input">
-    <input type="text" id="message" placeholder="Type a message...">
-    <button id="send-btn">Send</button>
-  </div>
+#login-container, #chat-container {
+  width: 100%;
+  max-width: 500px;
+}
 
-  <div>Stars: <span id="stars-count">0</span></div>
-</div>
+#chat-feed {
+  height: 400px;
+  overflow-y: auto;
+  background: #2c2c2c;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 8px;
+}
 
-<div id="reward-popup">🎉 You earned 1 Star!</div>
+.message {
+  margin-bottom: 8px;
+}
 
-<!-- Firebase -->
-<script type="module">
+.message .reactions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-right: 4px;
+}
+
+#chat-input {
+  display: flex;
+  gap: 5px;
+}
+
+#chat-input input {
+  flex: 1;
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+}
+
+#chat-input button, #login-buttons button, #logout-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #ff4b2b;
+  color: #fff;
+}
+
+#reward-popup {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: gold;
+  color: black;
+  padding: 10px 20px;
+  border-radius: 6px;
+}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-app.js";
 import { getFirestore, collection, doc, setDoc, getDoc, addDoc, onSnapshot, query, orderBy, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-auth.js";
@@ -75,6 +125,7 @@ const firebaseConfig = {
   appId: "1:1025842693579:web:e553bccf9581e65e55224e",
   measurementId: "G-X3CBKSLFJN"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
@@ -91,6 +142,7 @@ const messageInput = document.getElementById("message");
 const sendBtn = document.getElementById("send-btn");
 const chatFeed = document.getElementById("chat-feed");
 const roomsBtns = document.querySelectorAll(".room-btn");
+const pinnedMsg = document.getElementById("pinned-message");
 const starsCount = document.getElementById("stars-count");
 const rewardPopup = document.getElementById("reward-popup");
 const logoutBtn = document.getElementById("logout-btn");
@@ -110,17 +162,12 @@ signupBtn.onclick = async () => {
       admin: false,
       stars: 0
     });
-  } catch (err) {
-    loginMsg.textContent = err.message;
-  }
+  } catch (err) { loginMsg.textContent = err.message; }
 };
 
 loginBtn.onclick = async () => {
-  try {
-    await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
-  } catch (err) {
-    loginMsg.textContent = err.message;
-  }
+  try { await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value); }
+  catch (err) { loginMsg.textContent = err.message; }
 };
 
 logoutBtn.onclick = () => signOut(auth);
@@ -133,7 +180,7 @@ onAuthStateChanged(auth, async (user) => {
     chatContainer.classList.remove("hidden");
 
     const userDoc = await getDoc(doc(db, "users", user.uid));
-    starsCount.textContent = userDoc.exists() ? userDoc.data().stars : 0;
+    starsCount.textContent = userDoc.data().stars;
 
     startRewardTimer();
     loadRoom(currentRoom);
@@ -147,27 +194,42 @@ onAuthStateChanged(auth, async (user) => {
 
 // ------------------ Rooms ------------------
 roomsBtns.forEach(btn => {
-  btn.onclick = () => {
-    currentRoom = btn.dataset.room;
-    loadRoom(currentRoom);
-  };
+  btn.onclick = () => { currentRoom = btn.dataset.room; loadRoom(currentRoom); };
 });
 
 // ------------------ Load chat ------------------
 function loadRoom(room) {
   chatFeed.innerHTML = "";
+  pinnedMsg.textContent = "";
+
   const messagesRef = collection(db, "rooms", room, "messages");
   const q = query(messagesRef, orderBy("timestamp", "asc"));
 
   onSnapshot(q, (snap) => {
     chatFeed.innerHTML = "";
-    snap.forEach(doc => {
-      const data = doc.data();
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
       const msgDiv = document.createElement("div");
       msgDiv.classList.add("message");
-      msgDiv.textContent = `${data.senderName}: ${data.text}`;
+      msgDiv.innerHTML = `<b>${data.senderName}</b>: ${data.text}`;
+
+      const reactionsDiv = document.createElement("div");
+      reactionsDiv.classList.add("reactions");
+      ["❤️","🔥","😂"].forEach(r => {
+        const btn = document.createElement("button");
+        btn.textContent = r;
+        btn.onclick = async () => {
+          const field = `reactions.${r}`;
+          await updateDoc(doc(db, "rooms", room, "messages", docSnap.id), {[field]: increment(1)});
+        };
+        reactionsDiv.appendChild(btn);
+      });
+      msgDiv.appendChild(reactionsDiv);
       chatFeed.appendChild(msgDiv);
+
+      if (data.pinned) pinnedMsg.textContent = `📌 ${data.text}`;
     });
+
     chatFeed.scrollTop = chatFeed.scrollHeight;
   });
 }
@@ -175,29 +237,26 @@ function loadRoom(room) {
 // ------------------ Send message ------------------
 sendBtn.onclick = async () => {
   const text = messageInput.value.trim();
-  if (!text || !currentUser) return;
+  if (!text) return;
   messageInput.value = "";
+
   await addDoc(collection(db, "rooms", currentRoom, "messages"), {
     text,
     senderId: currentUser.uid,
     senderName: currentUser.email.split("@")[0],
-    timestamp: new Date()
+    timestamp: new Date(),
   });
 };
 
 // ------------------ Rewards ------------------
 function startRewardTimer() {
   rewardInterval = setInterval(async () => {
-    if (!currentUser) return;
     const userRef = doc(db, "users", currentUser.uid);
     await updateDoc(userRef, { stars: increment(1) });
     const docSnap = await getDoc(userRef);
     starsCount.textContent = docSnap.data().stars;
-    rewardPopup.style.display = "block";
-    setTimeout(() => rewardPopup.style.display = "none", 2000);
+
+    rewardPopup.classList.remove("hidden");
+    setTimeout(() => rewardPopup.classList.add("hidden"), 2000);
   }, 5 * 60 * 1000); // every 5 minutes
 }
-</script>
-
-</body>
-</html>
