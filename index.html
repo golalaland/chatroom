@@ -1,65 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Global Chat</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #000;
-      color: #fff;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      padding: 0;
-    }
-    #login-container, #chat-container { 
-      width: 100%; 
-      max-width: 480px; 
-    }
-    .hidden { display: none; }
-    input, button { padding: 10px; margin: 5px; border-radius: 5px; border: none; }
-    input { width: calc(100% - 24px); }
-    button { background: #ff4b2b; color: #fff; cursor: pointer; }
-    #chat-feed { height: 400px; overflow-y: auto; background: #111; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
-    .message { margin-bottom: 8px; }
-    .reactions button { background: none; border: none; cursor: pointer; margin-right: 4px; color: #ff4b2b; }
-    #reward-popup { position: fixed; top: 20px; right: 20px; background: gold; color: black; padding: 10px 20px; border-radius: 6px; display: none; }
-    #logout-btn { background: #555; }
-    .admin-buttons { display: none; margin-top: 5px; }
-  </style>
+<meta charset="UTF-8">
+<title>Global Chat</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #000;
+  color: #fff;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 0;
+}
+#login-container, #chat-container { width: 100%; max-width: 480px; }
+.hidden { display: none; }
+input, button { padding: 10px; margin: 5px; border-radius: 5px; border: none; }
+input { width: calc(100% - 24px); }
+button { background: #ff4b2b; color: #fff; cursor: pointer; }
+#chat-feed { height: 400px; overflow-y: auto; background: #111; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+.message { margin-bottom: 8px; }
+.reactions button { background: none; border: none; cursor: pointer; margin-right: 4px; color: #ff4b2b; }
+#reward-popup { position: fixed; top: 20px; right: 20px; background: gold; color: black; padding: 10px 20px; border-radius: 6px; display: none; }
+#logout-btn { background: #555; }
+.admin-buttons { display: none; margin-top: 5px; }
+#login-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+#login-buttons button { width: 100%; font-size: 16px; padding: 12px; border-radius: 8px; transition: background 0.2s ease; }
+#login-buttons button:hover { background: #ff7150; }
+@media (min-width: 400px) { #login-buttons { flex-direction: row; } }
+</style>
 </head>
 <body>
 
-  <!-- Login / Signup Popup -->
-  <div id="login-container">
-    <h2>Login / Signup</h2>
-    <input type="email" id="email" placeholder="Email">
-    <input type="password" id="password" placeholder="Password">
-    <div>
-      <button id="login-btn">Login</button>
-      <button id="signup-btn">Sign Up</button>
-    </div>
-    <p id="login-msg"></p>
+<!-- Login / Signup Popup -->
+<div id="login-container">
+  <h2>Login / Signup</h2>
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <div id="login-buttons">
+    <button id="login-btn">Login</button>
+    <button id="signup-btn">Sign Up</button>
   </div>
+  <p id="login-msg"></p>
+</div>
 
-  <!-- Chat Container -->
-  <div id="chat-container" class="hidden">
-    <h2>Global Chat</h2>
-    <p>Stars: <span id="stars-count">0</span></p>
-    <div id="chat-feed"></div>
-    <div id="chat-input">
-      <input type="text" id="message" placeholder="Type a message...">
-      <button id="send-btn">Send</button>
-    </div>
-    <button id="logout-btn">Logout</button>
+<!-- Chat Container -->
+<div id="chat-container" class="hidden">
+  <h2>Global Chat</h2>
+  <p>Stars: <span id="stars-count">0</span></p>
+  <div id="chat-feed"></div>
+  <div id="chat-input">
+    <input type="text" id="message" placeholder="Type a message...">
+    <button id="send-btn">Send</button>
   </div>
+  <button id="logout-btn">Logout</button>
+</div>
 
-  <div id="reward-popup">🎉 You earned 1 Star!</div>
+<div id="reward-popup">🎉 You've earned +1 Star!</div>
 
-  <script type="module" src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
