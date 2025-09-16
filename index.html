@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DettyChat (Simple Firebase Multi-Room Chat)</title>
+<!-- Simple styling -->
+<style>
+  :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa9bf;--accent:#6ee7b7;--danger:#ff6b6b}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;color:#e6eef8;background:linear-gradient(180deg,#071226 0%,#071222 100%);display:flex;height:100vh;align-items:stretch}
+  .app{display:grid;grid-template-columns:280px 1fr 320px;gap:16px;padding:18px;width:100%;box-sizing:border-box}
+  .panel{background:var(--card);border-radius:12px;padding:12px;box-shadow: 0 6px 20px rgba(0,0,0,.6)}
+  /* left: rooms + login */
+  #left{display:flex;flex-direction:column;gap:12px}
+  .rooms{display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow:auto}
+  .room-btn{padding:10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--muted);cursor:pointer;text-align:left}
+  .room-btn.active{background:rgba(255,255,255,0.03);color:#fff}
+  /* center: chat */
+  #center{display:flex;flex-direction:column;height:80vh}
+  .pinned{padding:10px;border-radius:8px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));margin-bottom:8px;min-height:48px}
+  .messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;border-radius:8px}
+  .msg{padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);max-width:76%;position:relative}
+  .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .msg.me{margin-left:auto;background:linear-gradient(180deg, rgba(110,231,183,0.08), rgba(110,231,183,0.04))}
+  .reactions{margin-top:6px;display:flex;gap:8px}
+  .react-btn{cursor:pointer;padding:4px;border-radius:6px;border:1px solid rgba(255,255,255,0.03);font-size:14px}
+  .controls{display:flex;gap:8px;padding-top:8px}
+  .input-wrap{display:flex;gap:8px}
+  input[type="text"], textarea{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#fff}
+  button.btn{padding:10px 12px;border-radius:8px;border:0;background:var(--accent);color:#042018;cursor:pointer}
+  .right-col{display:flex;flex-direction:column;gap:8px}
+  .admin-tools{display:flex;flex-direction:column;gap:8px}
+  .small{font-size:13px;color:var(--muted)}
+  .star-popup{position:fixed;left:50%;top:20%;transform:translateX(-50%);background:#07202b;padding:16px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);display:none;z-index:1000}
+  .media-preview img, .media-preview video{max-width:100%;border-radius:8px}
+  .login, .profile{display:flex;flex-direction:column;gap:8px}
+  .announce-area{display:flex;gap:8px}
+  .file-input{font-size:13px;color:var(--muted)}
+  .muted-btn{background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--muted);padding:8px;border-radius:8px;cursor:pointer}
+  .admin-badge{font-size:11px;background:#ffd166;color:#1a1a1a;padding:4px 6px;border-radius:6px;margin-left:8px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Left panel: login & rooms -->
+  <div class="panel" id="left">
+    <div class="topbar">
+      <div><strong style="font-size:18px">DettyChat</strong><div class="small">Realtime multi-room</div></div>
+      <div id="userBadge"></div>
+    </div>
+
+    <div class="login" id="authBox">
+      <input id="email" placeholder="Email" />
+      <input id="password" placeholder="Password" type="password" />
+      <input id="displayName" placeholder="Display name / Username" />
+      <div style="display:flex;gap:8px">
+        <button id="signup" class="btn">Sign up</button>
+        <button id="signin" class="muted-btn">Sign in</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button id="signout" class="muted-btn" style="display:none">Sign out</button>
+      </div>
+      <div class="small">Admins can be made by toggling the `admin` field on their user doc (see README).</div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03)"/>
+    <div>
+      <strong>Rooms</strong>
+      <div class="rooms" id="roomsList"></div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <input id="newRoomName" placeholder="New room name" />
+        <button id="createRoom" class="muted-btn">Create</button>
+      </div>
+    </div>
+
+    <div style="margin-top:auto" class="small">Deploy: Firebase Hosting or GitHub Pages. Embed via &lt;iframe&gt;.</div>
+  </div>
+
+  <!-- Center: chat -->
+  <div class="panel" id="center">
+    <div id="roomHeader" style="margin-bottom:8px">
+      <strong id="roomTitle">Select a room</strong>
+      <div class="small" id="roomDesc">Pick a room from the left</div>
+    </div>
+
+    <div class="pinned" id="pinnedArea" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>📌 Pinned</strong></div>
+        <div id="pinnedActions"></div>
+      </div>
+      <div id="pinnedContent" class="small"></div>
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="controls">
+      <div style="flex:1">
+        <div class="input-wrap">
+          <input type="text" id="messageInput" placeholder="Type a message..." />
+          <input type="text" id="mediaLink" placeholder="Optional media URL (img/gif/video)" style="width:220px" />
+          <button id="sendBtn" class="btn">Send</button>
+        </div>
+      </div>
+      <div style="width:200px">
+        <div class="small">Quick actions</div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="announceBtn" class="muted-btn">Announcement</button>
+          <input id="fileUpload" type="file" class="file-input" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: profile / admin tools -->
+  <div class="panel right-col" id="right">
+    <div class="profile" id="profileBox">
+      <div><strong id="profileName">Not signed in</strong> <span id="adminFlag"></span></div>
+      <div class="small">Stars: <span id="starCount">0</span></div>
+      <div class="small">UID: <span id="uid">—</span></div>
+    </div>
+
+    <div class="admin-tools" id="adminTools" style="display:none">
+      <strong>Admin Tools</strong>
+      <div>
+        <button id="pinButton" class="muted-btn">Pin selected message</button>
+        <button id="deleteButton" class="muted-btn">Delete selected message</button>
+      </div>
+      <div class="small">Select a message by clicking it (it will highlight).</div>
+    </div>
+
+    <div style="margin-top:auto" class="small">
+      Reward system: stay active for 5 minutes → earn Stars.
+    </div>
+  </div>
+</div>
+
+<!-- star popup -->
+<div class="star-popup" id="starPopup">
+  <div id="starText">You earned ⭐ 5 Stars!</div>
+  <div style="text-align:right;margin-top:8px"><button id="closeStar" class="muted-btn">Close</button></div>
+</div>
+
+<!-- Firebase (compat for simplicity) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+
+<script>
+/* ========== CONFIG - REPLACE with your Firebase project's config ========== */
+const firebaseConfig = {
+  apiKey: "TODO_apiKey",
+  authDomain: "TODO_projectId.firebaseapp.com",
+  projectId: "TODO_projectId",
+  storageBucket: "TODO_projectId.appspot.com",
+  messagingSenderId: "TODO",
+  appId: "TODO"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+/* ======================================================================= */
+
+/* ---------- helper shortcuts ---------- */
+const roomsListEl = document.getElementById('roomsList');
+const createRoomBtn = document.getElementById('createRoom');
+const newRoomNameInp = document.getElementById('newRoomName');
+const messagesEl = document.getElementById('messages');
+const messageInput = document.getElementById('messageInput');
+const sendBtn = document.getElementById('sendBtn');
+const mediaLinkInp = document.getElementById('mediaLink');
+const pinnedArea = document.getElementById('pinnedArea');
+const pinnedContent = document.getElementById('pinnedContent');
+const pinButton = document.getElementById('pinButton');
+const deleteButton = document.getElementById('deleteButton');
+const adminTools = document.getElementById('adminTools');
+const starPopup = document.getElementById('starPopup');
+const starText = document.getElementById('starText');
+const closeStar = document.getElementById('closeStar');
+const announceBtn = document.getElementById('announceBtn');
+const fileUpload = document.getElementById('fileUpload');
+
+let currentRoomId = null;
+let currentRoomUnsub = null;
+let currentPinnedUnsub = null;
+let selectedMessageId = null;
+let currentUser = null;
+let userDoc = null;
+let roomsUnsub = null;
+
+/* ---------- Auth UI ---------- */
+const emailInp = document.getElementById('email');
+const passInp = document.getElementById('password');
+const displayNameInp = document.getElementById('displayName');
+const signupBtn = document.getElementById('signup');
+const signinBtn = document.getElementById('signin');
+const signoutBtn = document.getElementById('signout');
+const profileName = document.getElementById('profileName');
+const adminFlagEl = document.getElementById('adminFlag');
+const starCountEl = document.getElementById('starCount');
+const uidEl = document.getElementById('uid');
+const userBadge = document.getElementById('userBadge');
+
+signupBtn.onclick = async () => {
+  const email = emailInp.value.trim();
+  const pw = passInp.value.trim();
+  const displayName = displayNameInp.value.trim() || email.split('@')[0];
+  if(!email || !pw){alert('Email & password required'); return;}
+  try{
+    const cred = await auth.createUserWithEmailAndPassword(email,pw);
+    await cred.user.updateProfile({displayName});
+    // create user doc
+    await db.collection('users').doc(cred.user.uid).set({
+      displayName,
+      email,
+      admin: false,
+      stars: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, {merge:true});
+  }catch(e){alert(e.message)}
+}
+
+signinBtn.onclick = async () => {
+  const email = emailInp.value.trim();
+  const pw = passInp.value.trim();
+  if(!email || !pw){alert('Provide credentials'); return;}
+  try{ await auth.signInWithEmailAndPassword(email,pw); } catch(e){alert(e.message)}
+}
+signoutBtn.onclick = () => auth.signOut();
+
+/* ---------- listen auth state ---------- */
+auth.onAuthStateChanged(async (user)=>{
+  currentUser = user;
+  if(user){
+    document.getElementById('signin').style.display='none';
+    document.getElementById('signup').style.display='none';
+    document.getElementById('signout').style.display='inline-block';
+    // load user doc
+    const doc = await db.collection('users').doc(user.uid).get();
+    if(!doc.exists){
+      await db.collection('users').doc(user.uid).set({
+        displayName: user.displayName || user.email.split('@')[0],
+        email: user.email,
+        admin: false,
+        stars: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+      userDoc = await db.collection('users').doc(user.uid).get();
+    } else userDoc = doc;
+    updateProfileUI();
+  } else {
+    document.getElementById('signin').style.display='inline-block';
+    document.getElementById('signup').style.display='inline-block';
+    document.getElementById('signout').style.display='none';
+    currentUser = null;
+    userDoc = null;
+    updateProfileUI();
+  }
+});
+
+/* ---------- Rooms listing & creation ---------- */
+function renderRoomBtn(room){
+  const el = document.createElement('button');
+  el.className = 'room-btn';
+  el.textContent = room.name;
+  el.onclick = () => selectRoom(room.id, room.name);
+  return el;
+}
+
+async function loadRooms(){
+  // subscribe to rooms collection
+  roomsUnsub = db.collection('rooms').orderBy('createdAt','asc').onSnapshot(snap=>{
+    roomsListEl.innerHTML = '';
+    snap.forEach(doc=>{
+      const data = doc.data();
+      const btn = renderRoomBtn({id:doc.id, name:data.name});
+      if(doc.id === currentRoomId) btn.classList.add('active');
+      roomsListEl.appendChild(btn);
+    })
+  })
+}
+
+createRoomBtn.onclick = async () => {
+  const name = newRoomNameInp.value.trim();
+  if(!name) return alert('Name required');
+  try{
+    await db.collection('rooms').add({
+      name,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      pinnedMessageId: null
+    });
+    newRoomNameInp.value='';
+  }catch(e){alert(e.message)}
+}
+
+/* ---------- Select a room - listen messages ---------- */
+async function selectRoom(roomId, roomName){
+  if(currentRoomId === roomId) return;
+  // unsubscribe previous
+  if(currentRoomUnsub) currentRoomUnsub();
+  if(currentPinnedUnsub) currentPinnedUnsub();
+  currentRoomId = roomId;
+  document.getElementById('roomTitle').textContent = roomName;
+  document.getElementById('roomDesc').textContent = 'Room ID: ' + roomId;
+  messagesEl.innerHTML = '';
+  pinnedArea.style.display='none';
+  // listen room doc for pinned
+  currentPinnedUnsub = db.collection('rooms').doc(roomId).onSnapshot(doc=>{
+    const data = doc.data();
+    if(data && data.pinnedMessageId){
+      // fetch pinned message
+      db.collection('rooms').doc(roomId).collection('messages').doc(data.pinnedMessageId).get().then(pm=>{
+        if(pm.exists){
+          const d = pm.data();
+          pinnedArea.style.display='block';
+          pinnedContent.innerHTML = `<div style="font-weight:600">${d.text||'(media)'}</div><div class="small">by ${d.displayName||d.uid} • ${d.type||'message'}</div>`;
+          // admin actions
+          document.getElementById('pinnedActions').innerHTML = currentUser && userDoc && userDoc.data().admin ? '<button class="muted-btn" onclick="unpin()">Unpin</button>' : '';
+        } else {
+          pinnedArea.style.display='none';
+        }
+      })
+    } else pinnedArea.style.display='none';
+  });
+
+  // listen messages in this room
+  currentRoomUnsub = db.collection('rooms').doc(roomId).collection('messages')
+    .orderBy('createdAt','asc')
+    .limitToLast(200)
+    .onSnapshot(snapshot=>{
+      messagesEl.innerHTML='';
+      snapshot.forEach(doc=>renderMessage(doc));
+      // auto-scroll
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+}
+
+/* ---------- render a message element ---------- */
+function renderMessage(doc){
+  const data = doc.data();
+  const isMe = currentUser && data.uid === currentUser.uid;
+  const el = document.createElement('div');
+  el.className = 'msg' + (isMe ? ' me' : '');
+  el.dataset.id = doc.id;
+  el.onclick = () => selectMessage(doc.id, el);
+  // meta
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const time = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleString() : '';
+  meta.textContent = `${data.displayName || data.uid} • ${time} ${data.type === 'announcement' ? '• ANNOUNCEMENT' : ''}`;
+  el.appendChild(meta);
+  // content
+  const content = document.createElement('div');
+  content.innerHTML = data.text ? escapeHtml(data.text) : (data.mediaURL ? '<em>Media</em>' : '');
+  el.appendChild(content);
+  // media
+  if(data.mediaURL){
+    const mp = document.createElement('div');
+    mp.className = 'media-preview';
+    if(data.mediaType && data.mediaType.startsWith('video')) {
+      mp.innerHTML = `<video controls src="${data.mediaURL}"></video>`;
+    } else {
+      mp.innerHTML = `<img src="${data.mediaURL}" alt="media" />`;
+    }
+    el.appendChild(mp);
+  }
+  // reactions
+  const reactionsBar = document.createElement('div');
+  reactionsBar.className = 'reactions';
+  ['❤️','🔥','😂'].forEach(emoji=>{
+    const btn = document.createElement('button');
+    btn.className = 'react-btn';
+    const count = data.reactions && data.reactions[emoji] ? data.reactions[emoji].length : 0;
+    btn.innerText = `${emoji} ${count>0?count:''}`;
+    btn.onclick = (ev)=>{ ev.stopPropagation(); toggleReaction(doc.id, emoji); }
+    reactionsBar.appendChild(btn);
+  });
+  el.appendChild(reactionsBar);
+
+  // admin controls visible in admin panel (right)
+  messagesEl.appendChild(el);
+}
+
+/* ---------- message select highlight ---------- */
+function selectMessage(id, el){
+  // clear previous highlight
+  document.querySelectorAll('.msg').forEach(m=>m.style.outline = 'none');
+  el.style.outline = '2px solid rgba(255,255,255,0.04)';
+  selectedMessageId = id;
+}
+
+/* ---------- send message (or announcement) ---------- */
+sendBtn.onclick = async () => {
+  if(!currentUser) return alert('Sign in first');
+  if(!currentRoomId) return alert('Select a room');
+  const text = messageInput.value.trim();
+  const media = mediaLinkInp.value.trim();
+  if(!text && !media) return;
+  let mediaURL = null;
+  let mediaType = null;
+  // if media link provided (or file uploaded earlier), do simple validation
+  if(media){
+    mediaURL = media;
+    // very naive type detection
+    mediaType = media.match(/\.(mp4|webm|ogg)/i) ? 'video' : 'image';
+  }
+  await db.collection('rooms').doc(currentRoomId).collection('messages').add({
+    text: text || '',
+    uid: currentUser.uid,
+    displayName: currentUser.displayName || currentUser.email.split('@')[0],
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    reactions: {},
+    type: 'message',
+    mediaURL: mediaURL || null,
+    mediaType: mediaType || null
+  });
+  messageInput.value=''; mediaLinkInp.value='';
+}
+
+/* ---------- announce (admin) ---------- */
+announceBtn.onclick = async ()=>{
+  if(!currentUser) return alert('Sign in');
+  const doc = await db.collection('users').doc(currentUser.uid).get();
+  if(!doc.data().admin) return alert('Only admins can send announcements');
+  const text = prompt('Announcement text (short):','🚂 Train is leaving!');
+  if(!text) return;
+  await db.collection('rooms').doc(currentRoomId).collection('messages').add({
+    text,
+    uid: currentUser.uid,
+    displayName: currentUser.displayName || 'Admin',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    reactions: {},
+    type: 'announcement',
+    mediaURL: null
+  });
+}
+
+/* ---------- file upload (admin) ---------- */
+fileUpload.onchange = async (e)=>{
+  if(!currentUser) return alert('Sign in');
+  const userDocSnap = await db.collection('users').doc(currentUser.uid).get();
+  if(!userDocSnap.data().admin) return alert('Only admins can upload media');
+  const file = e.target.files[0];
+  if(!file) return;
+  const path = `media/${currentRoomId}/${Date.now()}_${file.name}`;
+  const ref = storage.ref(path);
+  const uploadTask = ref.put(file);
+  uploadTask.on('state_changed',null,(err)=>alert(err.message),async ()=>{
+    const url = await ref.getDownloadURL();
+    // add message with media
+    await db.collection('rooms').doc(currentRoomId).collection('messages').add({
+      text: '',
+      uid: currentUser.uid,
+      displayName: currentUser.displayName || 'Admin',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      reactions: {},
+      type: 'message',
+      mediaURL: url,
+      mediaType: file.type
+    });
+    e.target.value = '';
+  });
+}
+
+/* ---------- toggle reaction (transactional) ---------- */
+async function toggleReaction(msgId, emoji){
+  if(!currentUser) return alert('Sign in');
+  const msgRef = db.collection('rooms').doc(currentRoomId).collection('messages').doc(msgId);
+  return db.runTransaction(async (tx)=>{
+    const snap = await tx.get(msgRef);
+    if(!snap.exists) return;
+    const data = snap.data();
+    const reactions = data.reactions || {};
+    const arr = reactions[emoji] || [];
+    const uid = currentUser.uid;
+    const idx = arr.indexOf(uid);
+    if(idx === -1) {
+      arr.push(uid);
+    } else {
+      arr.splice(idx,1);
+    }
+    reactions[emoji] = arr;
+    tx.update(msgRef, {reactions});
+  }).catch(e=>console.error(e));
+}
+
+/* ---------- pin/unpin/delete (admin functions) ---------- */
+async function pinSelected(){
+  if(!currentUser) return alert('Sign in');
+  if(!selectedMessageId) return alert('Select a message first');
+  const userRef = await db.collection('users').doc(currentUser.uid).get();
+  if(!userRef.data().admin) return alert('Only admins can pin');
+  await db.collection('rooms').doc(currentRoomId).update({pinnedMessageId: selectedMessageId});
+  alert('Pinned');
+}
+async function unpin(){
+  if(!currentUser) return alert('Sign in');
+  const userRef = await db.collection('users').doc(currentUser.uid).get();
+  if(!userRef.data().admin) return alert('Only admins can unpin');
+  await db.collection('rooms').doc(currentRoomId).update({pinnedMessageId: null});
+}
+async function deleteSelected(){
+  if(!currentUser) return alert('Sign in');
+  if(!selectedMessageId) return alert('Select a message first');
+  const userRef = await db.collection('users').doc(currentUser.uid).get();
+  if(!userRef.data().admin) return alert('Only admins can delete messages');
+  await db.collection('rooms').doc(currentRoomId).collection('messages').doc(selectedMessageId).delete();
+  selectedMessageId = null;
+  alert('Deleted');
+}
+pinButton.onclick = pinSelected;
+deleteButton.onclick = deleteSelected;
+
+/* expose unpin to global for pinned actions inline button */
+window.unpin = unpin;
+
+/* ---------- update profile UI ---------- */
+async function updateProfileUI(){
+  if(currentUser && userDoc){
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    userDoc = doc;
+    profileName.textContent = doc.data().displayName || currentUser.email;
+    adminFlagEl.innerHTML = doc.data().admin ? '<span class="admin-badge">ADMIN</span>' : '';
+    starCountEl.textContent = doc.data().stars || 0;
+    uidEl.textContent = currentUser.uid;
+    userBadge.textContent = doc.data().admin ? '⚑' : '';
+    adminTools.style.display = doc.data().admin ? 'block' : 'none';
+  } else {
+    profileName.textContent = 'Not signed in';
+    adminFlagEl.innerHTML = '';
+    starCountEl.textContent = '0';
+    uidEl.textContent = '—';
+    adminTools.style.display = 'none';
+  }
+}
+
+/* listen user doc changes for stars/admin updates */
+auth.onAuthStateChanged(user=>{
+  if(user){
+    db.collection('users').doc(user.uid).onSnapshot(doc=>{
+      userDoc = doc;
+      updateProfileUI();
+    })
+  }
+})
+
+/* ---------- reward system: every 5 minutes of active presence => award stars ---------- */
+let activeSeconds = 0;
+let activeInterval = null;
+let lastActivity = Date.now();
+let awardedCount = 0; // for session
+const ACTIVE_REQUIRED = 60 * 5; // 5 minutes in seconds
+function resetActiveTimer(){
+  lastActivity = Date.now();
+  activeSeconds = 0;
+}
+['mousemove','keydown','click','scroll'].forEach(ev=>window.addEventListener(ev, resetActiveTimer));
+function startActivityWatcher(){
+  if(activeInterval) clearInterval(activeInterval);
+  activeInterval = setInterval(async ()=>{
+    if(!currentUser) return;
+    // only count if window focused / visible
+    if(document.hidden) return;
+    // increment
+    activeSeconds++;
+    if(activeSeconds >= ACTIVE_REQUIRED){
+      // award 5 stars
+      const award = 5;
+      await db.collection('users').doc(currentUser.uid).update({
+        stars: firebase.firestore.FieldValue.increment(award)
+      });
+      // show popup
+      starText.textContent = `You earned ⭐ ${award} Stars!`;
+      starPopup.style.display = 'block';
+      // reset
+      activeSeconds = 0;
+      awardedCount++;
+    }
+  },1000);
+}
+closeStar.onclick = ()=> starPopup.style.display = 'none';
+startActivityWatcher();
+
+/* ---------- boot ---------- */
+loadRooms();
+
+/* ---------- small util ---------- */
+function escapeHtml(s){
+  if(!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
+}
+</script>
+</body>
+</html>
