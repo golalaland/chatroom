@@ -2,15 +2,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.2/firebas
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-firestore.js";
 
-// ---- Firebase Config ----
+// ---- Firebase Config (new project) ----
 const firebaseConfig = {
-  apiKey: "AIzaSyAv99TK5HKLHfvt8F1Cql7i22QP-FMqSKU",
-  authDomain: "xixichatroom.firebaseapp.com",
-  projectId: "xixichatroom",
-  storageBucket: "xixichatroom.firebasestorage.app",
-  messagingSenderId: "1025842693579",
-  appId: "1:1025842693579:web:e553bccf9581e65e55224e",
-  measurementId: "G-X3CBKSLFJN"
+  apiKey: "AIzaSyDmj1SQvIqI_A83EivlJfDg2z-kyUYIyrM",
+  authDomain: "xixichatroomdb.firebaseapp.com",
+  projectId: "xixichatroomdb",
+  storageBucket: "xixichatroomdb.firebasestorage.app",
+  messagingSenderId: "727244293530",
+  appId: "1:727244293530:web:29559cbcc18b49831b2623"
 };
 
 const app = initializeApp(firebaseConfig);
