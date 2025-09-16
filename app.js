@@ -1,8 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDoc, addDoc, onSnapshot, query, orderBy, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-firestore.js";
 
-// Firebase config
+// ---- Firebase Config ----
 const firebaseConfig = {
   apiKey: "AIzaSyAv99TK5HKLHfvt8F1Cql7i22QP-FMqSKU",
   authDomain: "xixichatroom.firebaseapp.com",
@@ -17,17 +17,17 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Elements
-const loginPopup = document.getElementById("login-popup");
+// ---- Elements ----
+const loginContainer = document.getElementById("login-container");
+const chatContainer = document.getElementById("chat-container");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const loginBtn = document.getElementById("login-btn");
 const signupBtn = document.getElementById("signup-btn");
 const loginMsg = document.getElementById("login-msg");
-const chatContainer = document.getElementById("chat-container");
-const chatFeed = document.getElementById("chat-feed");
 const messageInput = document.getElementById("message");
 const sendBtn = document.getElementById("send-btn");
+const chatFeed = document.getElementById("chat-feed");
 const starsCount = document.getElementById("stars-count");
 const rewardPopup = document.getElementById("reward-popup");
 const logoutBtn = document.getElementById("logout-btn");
@@ -35,17 +35,12 @@ const logoutBtn = document.getElementById("logout-btn");
 let currentUser = null;
 let rewardInterval = null;
 
-// ---------------- SIGNUP ----------------
+// ---- Signup ----
 signupBtn.onclick = async () => {
   loginMsg.textContent = "";
   const email = emailInput.value.trim();
   const password = passwordInput.value.trim();
-
-  if (!email || !password) {
-    loginMsg.textContent = "Enter email & password.";
-    return;
-  }
-
+  if (!email || !password) { loginMsg.textContent = "Enter email & password."; return; }
   try {
     const userCred = await createUserWithEmailAndPassword(auth, email, password);
     const uid = userCred.user.uid;
@@ -55,97 +50,87 @@ signupBtn.onclick = async () => {
       stars: 0,
       admin: false
     });
-    console.log("Signup successful:", uid);
+    loginMsg.textContent = "Signup successful! Logging in...";
   } catch (err) {
-    console.error(err.message);
     loginMsg.textContent = err.message;
+    console.error(err);
   }
 };
 
-// ---------------- LOGIN ----------------
+// ---- Login ----
 loginBtn.onclick = async () => {
   loginMsg.textContent = "";
   const email = emailInput.value.trim();
   const password = passwordInput.value.trim();
-
-  if (!email || !password) {
-    loginMsg.textContent = "Enter email & password.";
-    return;
-  }
-
+  if (!email || !password) { loginMsg.textContent = "Enter email & password."; return; }
   try {
     await signInWithEmailAndPassword(auth, email, password);
-    console.log("Login successful");
+    loginMsg.textContent = "Login successful!";
   } catch (err) {
-    console.error(err.message);
     loginMsg.textContent = err.message;
+    console.error(err);
   }
 };
 
-// ---------------- LOGOUT ----------------
-logoutBtn.onclick = () => signOut(auth);
-
-// ---------------- AUTH STATE ----------------
+// ---- Auth State ----
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
-    loginPopup.classList.add("hidden");
+    loginContainer.classList.add("hidden");
     chatContainer.classList.remove("hidden");
-
     const userDoc = await getDoc(doc(db, "users", user.uid));
     starsCount.textContent = userDoc.data().stars;
-
     startRewardTimer();
     loadChat();
   } else {
     currentUser = null;
-    loginPopup.classList.remove("hidden");
+    loginContainer.classList.remove("hidden");
     chatContainer.classList.add("hidden");
     clearInterval(rewardInterval);
   }
 });
 
-// ---------------- LOAD CHAT ----------------
-function loadChat() {
-  chatFeed.innerHTML = "";
-  const messagesRef = collection(db, "globalChat", "messages");
+// ---- Chat ----
+async function loadChat() {
+  const messagesRef = collection(db, "global-messages");
   const q = query(messagesRef, orderBy("timestamp", "asc"));
-
   onSnapshot(q, (snap) => {
     chatFeed.innerHTML = "";
-    snap.forEach(docSnap => {
-      const data = docSnap.data();
+    snap.forEach(doc => {
+      const data = doc.data();
       const msgDiv = document.createElement("div");
       msgDiv.classList.add("message");
-      msgDiv.innerHTML = `<b>${data.senderName}</b>: ${data.text}`;
+      msgDiv.textContent = `${data.senderName}: ${data.text}`;
       chatFeed.appendChild(msgDiv);
     });
     chatFeed.scrollTop = chatFeed.scrollHeight;
   });
 }
 
-// ---------------- SEND MESSAGE ----------------
+// ---- Send Message ----
 sendBtn.onclick = async () => {
   const text = messageInput.value.trim();
   if (!text) return;
   messageInput.value = "";
-
-  await addDoc(collection(db, "globalChat", "messages"), {
+  await addDoc(collection(db, "global-messages"), {
     text,
+    senderId: currentUser.uid,
     senderName: currentUser.email.split("@")[0],
     timestamp: new Date()
   });
 };
 
-// ---------------- REWARDS ----------------
+// ---- Rewards ----
 function startRewardTimer() {
   rewardInterval = setInterval(async () => {
     const userRef = doc(db, "users", currentUser.uid);
     await updateDoc(userRef, { stars: increment(1) });
     const docSnap = await getDoc(userRef);
     starsCount.textContent = docSnap.data().stars;
-
-    rewardPopup.classList.remove("hidden");
-    setTimeout(() => rewardPopup.classList.add("hidden"), 2000);
-  }, 5 * 60 * 1000);
+    rewardPopup.style.display = "block";
+    setTimeout(() => rewardPopup.style.display = "none", 2000);
+  }, 5 * 60 * 1000); // every 5 minutes
 }
+
+// ---- Logout ----
+logoutBtn.onclick = () => signOut(auth);
