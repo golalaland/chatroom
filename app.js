@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, addDoc, onSnapshot, query, orderBy, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-auth.js";
 
 // Firebase config
@@ -35,20 +35,54 @@ const logoutBtn = document.getElementById("logout-btn");
 let currentUser = null;
 let rewardInterval = null;
 
-// ---------------- AUTH ----------------
+// ---------------- SIGNUP ----------------
 signupBtn.onclick = async () => {
+  loginMsg.textContent = "";
+  const email = emailInput.value.trim();
+  const password = passwordInput.value.trim();
+
+  if (!email || !password) {
+    loginMsg.textContent = "Enter email & password.";
+    return;
+  }
+
   try {
-    const userCred = await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+    const userCred = await createUserWithEmailAndPassword(auth, email, password);
     const uid = userCred.user.uid;
-    await setDoc(doc(db, "users", uid), { email: emailInput.value, displayName: emailInput.value.split("@")[0], stars: 0, admin: false });
-  } catch (err) { loginMsg.textContent = err.message; }
+    await setDoc(doc(db, "users", uid), {
+      email,
+      displayName: email.split("@")[0],
+      stars: 0,
+      admin: false
+    });
+    console.log("Signup successful:", uid);
+  } catch (err) {
+    console.error(err.message);
+    loginMsg.textContent = err.message;
+  }
 };
 
+// ---------------- LOGIN ----------------
 loginBtn.onclick = async () => {
-  try { await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value); }
-  catch (err) { loginMsg.textContent = err.message; }
+  loginMsg.textContent = "";
+  const email = emailInput.value.trim();
+  const password = passwordInput.value.trim();
+
+  if (!email || !password) {
+    loginMsg.textContent = "Enter email & password.";
+    return;
+  }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    console.log("Login successful");
+  } catch (err) {
+    console.error(err.message);
+    loginMsg.textContent = err.message;
+  }
 };
 
+// ---------------- LOGOUT ----------------
 logoutBtn.onclick = () => signOut(auth);
 
 // ---------------- AUTH STATE ----------------
@@ -84,7 +118,6 @@ function loadChat() {
       const msgDiv = document.createElement("div");
       msgDiv.classList.add("message");
       msgDiv.innerHTML = `<b>${data.senderName}</b>: ${data.text}`;
-
       chatFeed.appendChild(msgDiv);
     });
     chatFeed.scrollTop = chatFeed.scrollHeight;
