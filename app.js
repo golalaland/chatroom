@@ -50,10 +50,10 @@ signupBtn.onclick = async () => {
       stars: 0,
       admin: false
     });
-    loginMsg.textContent = "Signup successful! Logging in...";
+    loginMsg.textContent = "Signup successful!";
   } catch (err) {
-    loginMsg.textContent = err.message;
     console.error(err);
+    loginMsg.textContent = err.message;
   }
 };
 
@@ -67,8 +67,8 @@ loginBtn.onclick = async () => {
     await signInWithEmailAndPassword(auth, email, password);
     loginMsg.textContent = "Login successful!";
   } catch (err) {
-    loginMsg.textContent = err.message;
     console.error(err);
+    loginMsg.textContent = err.message;
   }
 };
 
@@ -113,7 +113,9 @@ async function loadChat() {
 
         const deleteBtn = document.createElement("button");
         deleteBtn.textContent = "Delete";
-        deleteBtn.onclick = async () => await updateDoc(doc(db, "global-messages", doc.id), { deleted: true });
+        deleteBtn.onclick = async () => {
+          await updateDoc(doc(db, "global-messages", doc.id), { deleted: true });
+        };
 
         adminDiv.appendChild(deleteBtn);
         msgDiv.appendChild(adminDiv);
@@ -147,8 +149,8 @@ function startRewardTimer() {
     starsCount.textContent = docSnap.data().stars;
     rewardPopup.style.display = "block";
     setTimeout(() => rewardPopup.style.display = "none", 2000);
-  }, 5 * 60 * 1000); // every 5 minutes
+  }, 5 * 60 * 1000);
 }
 
 // ---- Logout ----
-logoutBtn.onclick = () => signOut(auth);
+logoutBtn.onclick = () => signOut
