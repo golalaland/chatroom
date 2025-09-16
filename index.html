@@ -1,158 +1,170 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Xixi Chatroom</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f3f4f6;
       margin: 0;
       padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
-
-    #pinned-message {
-      background: #fffae6;
-      padding: 10px;
-      border-bottom: 1px solid #ddd;
+    header {
+      background: #111827;
+      color: white;
+      padding: 12px;
+      text-align: center;
       font-weight: bold;
+      font-size: 18px;
     }
-
-    #messages {
-      height: 400px;
-      overflow-y: scroll;
+    #pinned {
+      background: #fde047;
+      color: #111827;
+      padding: 8px;
+      text-align: center;
+      font-weight: bold;
+      display: none;
+    }
+    #chat {
+      flex: 1;
+      overflow-y: auto;
       padding: 10px;
-      border-bottom: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
     }
-
-    #chat-input {
+    .message {
+      background: white;
+      margin: 6px 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      max-width: 70%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .message.admin {
+      border-left: 4px solid #2563eb;
+    }
+    .message .meta {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+    .message .content {
+      font-size: 14px;
+      color: #111827;
+    }
+    .reactions {
+      margin-top: 6px;
+    }
+    .reaction {
+      cursor: pointer;
+      margin-right: 6px;
+    }
+    #inputBar {
       display: flex;
       padding: 10px;
-      border-top: 1px solid #ddd;
+      background: white;
+      border-top: 1px solid #e5e7eb;
     }
-
-    #chat-input input {
+    #messageInput {
       flex: 1;
-      padding: 8px;
-    }
-
-    #chat-input button {
-      margin-left: 5px;
-    }
-
-    #admin-tools {
       padding: 10px;
-      background: #f9f9f9;
-      border-top: 1px solid #ddd;
-      display: none;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    #sendBtn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      margin-left: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <!-- Pinned message -->
-  <div id="pinned-message"></div>
-
-  <!-- Chat feed -->
-  <div id="messages"></div>
-
-  <!-- Input for all users -->
-  <div id="chat-input">
-    <input type="text" id="message-input" placeholder="Type a message...">
-    <button id="send-btn">Send</button>
+  <header>Xixi Chatroom</header>
+  <div id="pinned"></div>
+  <div id="chat"></div>
+  <div id="inputBar">
+    <input type="text" id="messageInput" placeholder="Type a message..." />
+    <button id="sendBtn">Send</button>
   </div>
 
-  <!-- Admin-only tools -->
-  <div id="admin-tools">
-    <input type="url" id="media-url" placeholder="Paste media URL (image/gif/video)">
-    <button id="pin-btn">Pin Last Message</button>
-  </div>
-
-  <!-- Firebase & Chat JS -->
+  <!-- Firebase SDK -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
-    import { getFirestore, doc, getDoc, collection, addDoc, query, orderBy, onSnapshot, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     // Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAv99TK5HKLHfvt8F1Cql7i22QP-FMqSKU",
       authDomain: "xixichatroom.firebaseapp.com",
       projectId: "xixichatroom",
-      storageBucket: "xixichatroom.firebasestorage.app",
+      storageBucket: "xixichatroom.appspot.com",
       messagingSenderId: "1025842693579",
       appId: "1:1025842693579:web:e553bccf9581e65e55224e",
       measurementId: "G-X3CBKSLFJN"
     };
 
-    // Init
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // DOM
-    const sendBtn = document.getElementById("send-btn");
-    const msgInput = document.getElementById("message-input");
-    const messagesDiv = document.getElementById("messages");
-    const pinnedDiv = document.getElementById("pinned-message");
-    const adminTools = document.getElementById("admin-tools");
-    const mediaInput = document.getElementById("media-url");
-    const pinBtn = document.getElementById("pin-btn");
-
-    let currentUser = null;
-    let isAdmin = false;
-
-    // 🔑 Check if user is admin
-    async function checkAdmin(uid) {
-      const snap = await getDoc(doc(db, "users", uid));
-      return snap.exists() && snap.data().admin === true;
-    }
-
-    // 👤 Auth: Google popup login
+    // 🔑 Demo sign-in with Google popup
     const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider).catch(console.error);
-
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        currentUser = user;
-        isAdmin = await checkAdmin(user.uid);
-        adminTools.style.display = isAdmin ? "block" : "none";
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        signInWithPopup(auth, provider);
       }
     });
 
-    // 💬 Send text message
-    sendBtn.addEventListener("click", async () => {
-      if (!msgInput.value.trim()) return;
-      await addDoc(collection(db, "rooms", "general", "messages"), {
-        text: msgInput.value,
-        uid: currentUser.uid,
-        createdAt: Date.now()
+    const chatRef = collection(db, "messages");
+
+    // Send message
+    document.getElementById("sendBtn").onclick = async () => {
+      const input = document.getElementById("messageInput");
+      if (input.value.trim() === "") return;
+      await addDoc(chatRef, {
+        text: input.value,
+        uid: auth.currentUser.uid,
+        email: auth.currentUser.email,
+        createdAt: serverTimestamp(),
+        reactions: {}
       });
-      msgInput.value = "";
-    });
+      input.value = "";
+    };
 
-    // 📌 Admin-only: Pin last message
-    pinBtn.addEventListener("click", async () => {
-      if (!isAdmin) return;
-      const q = query(collection(db, "rooms", "general", "messages"), orderBy("createdAt", "desc"));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const lastMsg = snap.docs[0];
-        await updateDoc(lastMsg.ref, { pinned: true });
-      }
-    });
-
-    // 👀 Realtime listener for messages
-    onSnapshot(query(collection(db, "rooms", "general", "messages"), orderBy("createdAt")), (snapshot) => {
-      messagesDiv.innerHTML = "";
+    // Listen for messages
+    const q = query(chatRef, orderBy("createdAt"));
+    onSnapshot(q, snapshot => {
+      const chat = document.getElementById("chat");
+      chat.innerHTML = "";
       snapshot.forEach(docSnap => {
-        const msg = docSnap.data();
-        const div = document.createElement("div");
-        div.textContent = msg.text || "[media]";
-        messagesDiv.appendChild(div);
-
-        if (msg.pinned) {
-          pinnedDiv.textContent = "📌 " + (msg.text || "[media]");
-        }
+        const data = docSnap.data();
+        const msgDiv = document.createElement("div");
+        msgDiv.className = "message" + (data.email?.includes("admin") ? " admin" : "");
+        msgDiv.innerHTML = `
+          <div class="meta">${data.email || "Anon"}</div>
+          <div class="content">${data.text || ""}</div>
+          <div class="reactions">
+            <span class="reaction">❤️</span>
+            <span class="reaction">🔥</span>
+            <span class="reaction">😂</span>
+          </div>
+        `;
+        chat.appendChild(msgDiv);
       });
+      chat.scrollTop = chat.scrollHeight;
     });
   </script>
 </body>
