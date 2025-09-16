@@ -1,171 +1,567 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Xixi Chatroom</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f3f4f6;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    header {
-      background: #111827;
-      color: white;
-      padding: 12px;
-      text-align: center;
-      font-weight: bold;
-      font-size: 18px;
-    }
-    #pinned {
-      background: #fde047;
-      color: #111827;
-      padding: 8px;
-      text-align: center;
-      font-weight: bold;
-      display: none;
-    }
-    #chat {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-    }
-    .message {
-      background: white;
-      margin: 6px 0;
-      padding: 10px 12px;
-      border-radius: 12px;
-      max-width: 70%;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      position: relative;
-    }
-    .message.admin {
-      border-left: 4px solid #2563eb;
-    }
-    .message .meta {
-      font-size: 12px;
-      color: #6b7280;
-      margin-bottom: 4px;
-    }
-    .message .content {
-      font-size: 14px;
-      color: #111827;
-    }
-    .reactions {
-      margin-top: 6px;
-    }
-    .reaction {
-      cursor: pointer;
-      margin-right: 6px;
-    }
-    #inputBar {
-      display: flex;
-      padding: 10px;
-      background: white;
-      border-top: 1px solid #e5e7eb;
-    }
-    #messageInput {
-      flex: 1;
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    #sendBtn {
-      background: #2563eb;
-      color: white;
-      border: none;
-      padding: 10px 16px;
-      margin-left: 8px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Xixi — Chatroom</title>
+<link rel="icon" href="data:," />
+<style>
+  /* --- swaggy compact styles --- */
+  :root{
+    --bg:#071226; --card:#071A2A; --muted:#9fb0c6; --accent:#6ee7b7; --accent-dark:#26a67f;
+    --glass: rgba(255,255,255,0.03);
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;color:#e6eef8;background:linear-gradient(180deg,#04101a 0%,#072434 100%)}
+  .app{display:grid;grid-template-columns:260px 1fr 300px;gap:16px;padding:18px;box-sizing:border-box;height:100%}
+  .panel{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,.6);display:flex;flex-direction:column}
+  /* left: auth + rooms */
+  #left{gap:12px}
+  .brand{font-weight:700;font-size:18px}
+  .small{font-size:13px;color:var(--muted)}
+  .rooms{margin-top:8px;display:flex;flex-direction:column;gap:8px;overflow:auto;padding-right:4px}
+  .room-btn{background:transparent;border-radius:8px;border:1px solid rgba(255,255,255,0.03);padding:10px;color:var(--muted);text-align:left;cursor:pointer}
+  .room-btn.active{background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));color:#fff}
+  .controls-row{display:flex;gap:8px;margin-top:8px}
+  input, button, textarea, select{font-family:inherit}
+  input[type="text"], input[type="email"], input[type="password"]{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#fff}
+  button.btn{background:var(--accent);color:#042018;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);padding:8px;border-radius:8px}
+  /* center: main chat */
+  #center{height:100%;display:flex;flex-direction:column}
+  .topbar{display:flex;justify-content:space-between;align-items:center}
+  .pinned{padding:10px;border-radius:8px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));margin:10px 0;display:none}
+  #messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px;border-radius:8px}
+  .msg{padding:10px;border-radius:12px;background:var(--glass);max-width:72%;position:relative}
+  .msg.me{margin-left:auto;background:linear-gradient(180deg, rgba(110,231,183,0.06), rgba(110,231,183,0.03))}
+  .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .content{font-size:14px;color:#e6eef8;white-space:pre-wrap}
+  .reactions{margin-top:8px;display:flex;gap:8px}
+  .react-btn{cursor:pointer;padding:4px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted);font-size:14px}
+  /* input area */
+  .send-area{display:flex;gap:8px;padding-top:8px;align-items:center}
+  .compose{flex:1;display:flex;gap:8px}
+  textarea#messageInput{flex:1;min-height:44px;max-height:120px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:#fff;resize:none}
+  /* right: profile & admin tools */
+  #right{gap:12px}
+  .profile{display:flex;flex-direction:column;gap:6px}
+  .admin-tools{display:none;flex-direction:column;gap:8px}
+  .small-ghost{font-size:12px;color:var(--muted)}
+  .star-popup{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:#07202b;padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);display:none;z-index:1000}
+  .file-input{color:var(--muted)}
+  .msg.selected{outline:2px solid rgba(255,255,255,0.04)}
+  /* responsive */
+  @media (max-width:980px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+    #right{order:3}
+  }
+</style>
 </head>
 <body>
-  <header>Xixi Chatroom</header>
-  <div id="pinned"></div>
-  <div id="chat"></div>
-  <div id="inputBar">
-    <input type="text" id="messageInput" placeholder="Type a message..." />
-    <button id="sendBtn">Send</button>
+<div class="app">
+  <!-- LEFT -->
+  <div class="panel" id="left">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="brand">XiXi Chatroom</div>
+        <div class="small">Community • Real-time • Compact</div>
+      </div>
+      <div id="userBadge"></div>
+    </div>
+
+    <!-- Auth box -->
+    <div id="authBox" style="margin-top:12px">
+      <div id="authForm">
+        <input type="email" id="authEmail" placeholder="Email" />
+        <input type="password" id="authPassword" placeholder="Password" style="margin-top:8px"/>
+        <div class="controls-row">
+          <button id="signinBtn" class="btn">Sign in</button>
+          <button id="signupBtn" class="ghost">Sign up</button>
+        </div>
+        <div style="margin-top:8px">
+          <button id="signoutBtn" class="ghost" style="display:none">Sign out</button>
+        </div>
+      </div>
+      <div id="authMsg" class="small-ghost" style="margin-top:8px"></div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0"/>
+
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Rooms</strong>
+        <button id="createRoomBtn" class="ghost" title="Create room">New</button>
+      </div>
+      <div class="rooms" id="roomsList"></div>
+      <div style="margin-top:8px">
+        <input type="text" id="newRoomName" placeholder="New room name" />
+      </div>
+    </div>
+
+    <div style="margin-top:auto" class="small">Embed via &lt;iframe&gt; or deploy to GitHub Pages / Firebase Hosting.</div>
   </div>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  <!-- CENTER -->
+  <div class="panel" id="center">
+    <div class="topbar">
+      <div>
+        <div id="roomTitle" style="font-weight:700">Select a room</div>
+        <div id="roomSub" class="small" style="margin-top:4px">Pick or create a room on the left</div>
+      </div>
+      <div class="small" id="userInfoTop"></div>
+    </div>
 
-    // Your Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyAv99TK5HKLHfvt8F1Cql7i22QP-FMqSKU",
-      authDomain: "xixichatroom.firebaseapp.com",
-      projectId: "xixichatroom",
-      storageBucket: "xixichatroom.appspot.com",
-      messagingSenderId: "1025842693579",
-      appId: "1:1025842693579:web:e553bccf9581e65e55224e",
-      measurementId: "G-X3CBKSLFJN"
-    };
+    <div class="pinned" id="pinnedArea">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>📌 Pinned</strong></div>
+        <div id="pinnedActions"></div>
+      </div>
+      <div id="pinnedContent" class="small" style="margin-top:6px"></div>
+    </div>
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    <div id="messages"></div>
 
-    // 🔑 Demo sign-in with Google popup
-    const provider = new GoogleAuthProvider();
-    auth.onAuthStateChanged(user => {
-      if (!user) {
-        signInWithPopup(auth, provider);
+    <div class="send-area">
+      <div class="compose">
+        <textarea id="messageInput" placeholder="Write your message..."></textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button id="sendBtn" class="btn">Send</button>
+        <button id="announceBtn" class="ghost" title="Admin: make announcement">Announce</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel" id="right">
+    <div class="profile">
+      <div><strong id="profileName">Guest</strong> <span id="adminBadge"></span></div>
+      <div class="small">Stars: <span id="starCount">0</span></div>
+      <div class="small">UID: <span id="uid">—</span></div>
+    </div>
+
+    <div class="admin-tools" id="adminTools" style="margin-top:12px">
+      <strong>Admin Tools</strong>
+      <div class="small">Only admins see this</div>
+      <input id="fileUpload" type="file" class="file-input" />
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button id="pinBtn" class="ghost">Pin selected</button>
+        <button id="deleteBtn" class="ghost">Delete selected</button>
+      </div>
+    </div>
+
+    <div style="margin-top:auto" class="small">Stay active for 5 minutes to earn Stars. Stars are saved to your account.</div>
+  </div>
+</div>
+
+<!-- star popup -->
+<div class="star-popup" id="starPopup">
+  <div id="starText">You earned ⭐ 1 Star!</div>
+  <div style="text-align:right;margin-top:8px"><button id="closeStar" class="ghost">Close</button></div>
+</div>
+
+<!-- Firebase modular SDK -->
+<script type="module">
+/* ========== FIREBASE CONFIG - uses your project xixichatroom ========== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, getDoc, addDoc, query, orderBy, onSnapshot, serverTimestamp, updateDoc, runTransaction, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref as sref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAv99TK5HKLHfvt8F1Cql7i22QP-FMqSKU",
+  authDomain: "xixichatroom.firebaseapp.com",
+  projectId: "xixichatroom",
+  storageBucket: "xixichatroom.appspot.com",
+  messagingSenderId: "1025842693579",
+  appId: "1:1025842693578:web:e553bccf9581e65e55224e", // NOTE: if your appId differs, replace with your actual value
+  measurementId: "G-X3CBKSLFJN"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+/* ---------- UI references ---------- */
+const signinBtn = document.getElementById('signinBtn');
+const signupBtn = document.getElementById('signupBtn');
+const signoutBtn = document.getElementById('signoutBtn');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authMsg = document.getElementById('authMsg');
+
+const roomsList = document.getElementById('roomsList');
+const createRoomBtn = document.getElementById('createRoomBtn');
+const newRoomName = document.getElementById('newRoomName');
+
+const roomTitle = document.getElementById('roomTitle');
+const roomSub = document.getElementById('roomSub');
+const pinnedArea = document.getElementById('pinnedArea');
+const pinnedContent = document.getElementById('pinnedContent');
+const pinnedActions = document.getElementById('pinnedActions');
+
+const messagesEl = document.getElementById('messages');
+const messageInput = document.getElementById('messageInput');
+const sendBtn = document.getElementById('sendBtn');
+const announceBtn = document.getElementById('announceBtn');
+
+const profileName = document.getElementById('profileName');
+const adminBadge = document.getElementById('adminBadge');
+const starCountEl = document.getElementById('starCount');
+const uidEl = document.getElementById('uid');
+
+const adminTools = document.getElementById('adminTools');
+const fileUpload = document.getElementById('fileUpload');
+const pinBtn = document.getElementById('pinBtn');
+const deleteBtn = document.getElementById('deleteBtn');
+
+const starPopup = document.getElementById('starPopup');
+const starText = document.getElementById('starText');
+const closeStar = document.getElementById('closeStar');
+
+let currentUser = null;
+let currentUserDoc = null;
+let currentRoomId = null;
+let currentRoomUnsub = null;
+let roomsUnsub = null;
+let selectedMessageId = null;
+let awardedThisSession = 0;
+
+/* ---------- Auth handlers ---------- */
+signupBtn.onclick = async () => {
+  const email = authEmail.value.trim();
+  const pw = authPassword.value.trim();
+  if(!email || !pw) { authMsg.textContent = 'Email and password required'; return; }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pw);
+    // create user doc if missing
+    await setDoc(doc(db,'users',cred.user.uid), {
+      email: cred.user.email,
+      displayName: cred.user.email.split('@')[0],
+      admin: false,
+      stars: 0,
+      createdAt: serverTimestamp()
+    }, { merge: true });
+    authMsg.textContent = 'Signed up — logged in.';
+  } catch(e){ authMsg.textContent = e.message; }
+};
+
+signinBtn.onclick = async () => {
+  const email = authEmail.value.trim();
+  const pw = authPassword.value.trim();
+  if(!email || !pw) { authMsg.textContent = 'Email and password required'; return; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+    authMsg.textContent = '';
+  } catch(e){ authMsg.textContent = e.message; }
+};
+
+signoutBtn.onclick = () => signOut(auth);
+
+/* ---------- Admin check helper ---------- */
+async function loadUserDoc(uid) {
+  const ud = await getDoc(doc(db,'users',uid));
+  if(!ud.exists()) {
+    // create minimal doc
+    await setDoc(doc(db,'users',uid), {
+      email: currentUser.email,
+      displayName: currentUser.email.split('@')[0],
+      admin: false,
+      stars: 0,
+      createdAt: serverTimestamp()
+    }, { merge:true });
+    return (await getDoc(doc(db,'users',uid)));
+  }
+  return ud;
+}
+
+/* ---------- Rooms: list & create ---------- */
+function renderRoomButton(room) {
+  const btn = document.createElement('button');
+  btn.className = 'room-btn' + (room.id === currentRoomId ? ' active' : '');
+  btn.textContent = room.name;
+  btn.onclick = ()=> selectRoom(room.id, room.name);
+  return btn;
+}
+
+async function loadRooms(){
+  if(roomsUnsub) roomsUnsub();
+  roomsUnsub = onSnapshot(query(collection(db,'rooms'), orderBy('createdAt')), snap=>{
+    roomsList.innerHTML = '';
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      roomsList.appendChild(renderRoomButton({ id: docSnap.id, name: d.name }));
+    });
+  });
+}
+
+createRoomBtn.onclick = async ()=>{
+  const name = (newRoomName.value || '').trim();
+  if(!name) return;
+  await addDoc(collection(db,'rooms'), { name, createdAt: serverTimestamp(), pinnedMessageId: null });
+  newRoomName.value='';
+};
+
+/* ---------- Select room & listen messages ---------- */
+async function selectRoom(roomId, roomName){
+  if(currentRoomUnsub) currentRoomUnsub();
+  currentRoomId = roomId;
+  roomTitle.textContent = roomName;
+  roomSub.textContent = `Room ID: ${roomId}`;
+  pinnedArea.style.display = 'none';
+  messagesEl.innerHTML = '';
+
+  // pinned
+  currentRoomUnsub = onSnapshot(doc(db,'rooms',roomId), async (roomDoc)=>{
+    const r = roomDoc.data();
+    if(r && r.pinnedMessageId){
+      const pm = await getDoc(doc(db,'rooms',roomId,'messages',r.pinnedMessageId));
+      if(pm.exists()){
+        pinnedContent.textContent = pm.data().text || '[media]';
+        pinnedArea.style.display = 'block';
+        pinnedActions.innerHTML = (currentUserDoc && currentUserDoc.data().admin) ? '<button class="ghost" onclick="unpin()">Unpin</button>' : '';
+      } else {
+        pinnedArea.style.display = 'none';
       }
+    } else pinnedArea.style.display = 'none';
+  });
+
+  // messages listener
+  currentRoomUnsub = onSnapshot(query(collection(db,'rooms',roomId,'messages'), orderBy('createdAt')), snapshot=>{
+    messagesEl.innerHTML = '';
+    snapshot.forEach(docSnap => {
+      renderMessage(docSnap);
     });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+}
 
-    const chatRef = collection(db, "messages");
+/* ---------- render message ---------- */
+function renderMessage(docSnap){
+  const data = docSnap.data();
+  const el = document.createElement('div');
+  el.className = 'msg' + ((currentUser && data.uid === currentUser.uid) ? ' me' : '');
+  el.dataset.id = docSnap.id;
+  // highlight if selected
+  el.onclick = (e)=> {
+    e.stopPropagation();
+    document.querySelectorAll('.msg').forEach(m=>m.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedMessageId = docSnap.id;
+  };
 
-    // Send message
-    document.getElementById("sendBtn").onclick = async () => {
-      const input = document.getElementById("messageInput");
-      if (input.value.trim() === "") return;
-      await addDoc(chatRef, {
-        text: input.value,
-        uid: auth.currentUser.uid,
-        email: auth.currentUser.email,
-        createdAt: serverTimestamp(),
-        reactions: {}
-      });
-      input.value = "";
-    };
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const when = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleString() : '';
+  meta.textContent = `${data.displayName || data.email || 'Anon'} • ${when} ${data.type === 'announcement' ? '• ANNOUNCEMENT' : ''}`;
+  el.appendChild(meta);
 
-    // Listen for messages
-    const q = query(chatRef, orderBy("createdAt"));
-    onSnapshot(q, snapshot => {
-      const chat = document.getElementById("chat");
-      chat.innerHTML = "";
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const msgDiv = document.createElement("div");
-        msgDiv.className = "message" + (data.email?.includes("admin") ? " admin" : "");
-        msgDiv.innerHTML = `
-          <div class="meta">${data.email || "Anon"}</div>
-          <div class="content">${data.text || ""}</div>
-          <div class="reactions">
-            <span class="reaction">❤️</span>
-            <span class="reaction">🔥</span>
-            <span class="reaction">😂</span>
-          </div>
-        `;
-        chat.appendChild(msgDiv);
-      });
-      chat.scrollTop = chat.scrollHeight;
+  const content = document.createElement('div');
+  content.className = 'content';
+  if(data.mediaURL){
+    if(data.mediaType && data.mediaType.startsWith('video')) {
+      content.innerHTML = `<video controls style="max-width:100%;border-radius:8px"><source src="${data.mediaURL}"></video>`;
+    } else {
+      content.innerHTML = `<img src="${data.mediaURL}" style="max-width:100%;border-radius:8px" />`;
+    }
+    if(data.text) content.innerHTML += `<div style="margin-top:8px">${escapeHtml(data.text)}</div>`;
+  } else {
+    content.textContent = data.text || '';
+  }
+  el.appendChild(content);
+
+  // reactions
+  const reactionsBar = document.createElement('div');
+  reactionsBar.className = 'reactions';
+  ['❤️','🔥','😂'].forEach(emoji=>{
+    const btn = document.createElement('button');
+    btn.className = 'react-btn';
+    const count = data.reactions && data.reactions[emoji] ? data.reactions[emoji].length : 0;
+    btn.textContent = `${emoji} ${count>0?count:''}`;
+    btn.onclick = (ev)=>{ ev.stopPropagation(); toggleReaction(docSnap.ref, emoji); };
+    reactionsBar.appendChild(btn);
+  });
+  el.appendChild(reactionsBar);
+
+  messagesEl.appendChild(el);
+}
+
+/* ---------- send message ---------- */
+sendBtn.onclick = async ()=>{
+  if(!currentUser) { alert('Sign in first'); return; }
+  if(!currentRoomId) { alert('Select a room'); return; }
+  const text = messageInput.value.trim();
+  if(!text) return;
+  await addDoc(collection(db,'rooms',currentRoomId,'messages'), {
+    text,
+    uid: currentUser.uid,
+    displayName: currentUser.displayName || currentUser.email.split('@')[0],
+    email: currentUser.email,
+    createdAt: serverTimestamp(),
+    reactions: {},
+    type: 'message',
+    mediaURL: null,
+    mediaType: null
+  });
+  messageInput.value='';
+};
+
+/* ---------- announce (admin) ---------- */
+announceBtn.onclick = async ()=>{
+  if(!currentUserDoc || !currentUserDoc.data().admin) return alert('Admins only');
+  const text = prompt('Announcement text (short):','🚂 Train is leaving!');
+  if(!text) return;
+  await addDoc(collection(db,'rooms',currentRoomId,'messages'), {
+    text,
+    uid: currentUser.uid,
+    displayName: currentUser.displayName || currentUser.email.split('@')[0],
+    email: currentUser.email,
+    createdAt: serverTimestamp(),
+    reactions: {},
+    type: 'announcement',
+    mediaURL: null,
+    mediaType: null
+  });
+};
+
+/* ---------- file upload (admin-only) ---------- */
+fileUpload.onchange = async (e)=>{
+  if(!currentUserDoc || !currentUserDoc.data().admin) return alert('Admins only');
+  const file = e.target.files[0];
+  if(!file) return;
+  const path = `media/${currentRoomId}/${Date.now()}_${file.name}`;
+  const ref = sref(storage, path);
+  try{
+    await uploadBytes(ref, file);
+    const url = await getDownloadURL(ref);
+    await addDoc(collection(db,'rooms',currentRoomId,'messages'), {
+      text: '',
+      uid: currentUser.uid,
+      displayName: currentUser.displayName || currentUser.email.split('@')[0],
+      email: currentUser.email,
+      createdAt: serverTimestamp(),
+      reactions: {},
+      type: 'message',
+      mediaURL: url,
+      mediaType: file.type
     });
-  </script>
+    e.target.value = '';
+  }catch(err){ alert(err.message) }
+};
+
+/* ---------- reactions toggle (transactional) ---------- */
+async function toggleReaction(msgRef, emoji){
+  if(!currentUser) return alert('Sign in');
+  try{
+    await runTransaction(db, async (tx)=>{
+      const sn = await tx.get(msgRef);
+      if(!sn.exists()) return;
+      const data = sn.data();
+      const reactions = data.reactions || {};
+      const arr = Array.isArray(reactions[emoji]) ? reactions[emoji].slice() : [];
+      const idx = arr.indexOf(currentUser.uid);
+      if(idx === -1) arr.push(currentUser.uid); else arr.splice(idx,1);
+      reactions[emoji] = arr;
+      tx.update(msgRef, { reactions });
+    });
+  }catch(e){ console.error(e) }
+}
+
+/* ---------- pin / delete (admin-only) ---------- */
+pinBtn.onclick = async ()=>{
+  if(!currentUserDoc || !currentUserDoc.data().admin) return alert('Admins only');
+  if(!selectedMessageId) return alert('Select a message first');
+  await updateDoc(doc(db,'rooms',currentRoomId), { pinnedMessageId: selectedMessageId });
+  alert('Pinned');
+};
+
+window.unpin = async ()=>{ // used by pinned actions
+  if(!currentUserDoc || !currentUserDoc.data().admin) return alert('Admins only');
+  await updateDoc(doc(db,'rooms',currentRoomId), { pinnedMessageId: null });
+};
+
+deleteBtn.onclick = async ()=>{
+  if(!currentUserDoc || !currentUserDoc.data().admin) return alert('Admins only');
+  if(!selectedMessageId) return alert('Select message');
+  await deleteDoc(doc(db,'rooms',currentRoomId,'messages',selectedMessageId));
+  selectedMessageId = null;
+  alert('Deleted');
+};
+
+/* ---------- toggle pinned action (exposed) ---------- */
+function showPinnedActions(){
+  pinnedActions.innerHTML = '';
+  if(currentUserDoc && currentUserDoc.data().admin){
+    const btn = document.createElement('button');
+    btn.className = 'ghost';
+    btn.textContent = 'Unpin';
+    btn.onclick = ()=> unpin();
+    pinnedActions.appendChild(btn);
+  }
+}
+
+/* ---------- admin UI toggle & user doc load ---------- */
+onAuthStateChanged(auth, async (user)=>{
+  currentUser = user;
+  if(!user){
+    profileName.textContent = 'Guest';
+    adminBadge.innerHTML = '';
+    signoutBtn.style.display = 'none';
+    document.getElementById('authMsg').textContent = 'Signed out';
+    currentUserDoc = null;
+    adminTools.style.display = 'none';
+    // still load public rooms
+    await loadRooms();
+    return;
+  }
+  signoutBtn.style.display = 'inline-block';
+  uidEl.textContent = user.uid;
+  profileName.textContent = user.email;
+  // load/create user doc
+  currentUserDoc = await loadUserDoc(user.uid);
+  starCountEl.textContent = currentUserDoc.data().stars || 0;
+  adminBadge.innerHTML = currentUserDoc.data().admin ? '<span style="background:#ffd166;color:#111;padding:4px 6px;border-radius:6px;font-size:12px">ADMIN</span>' : '';
+  adminTools.style.display = currentUserDoc.data().admin ? 'flex' : 'none';
+  // load rooms and auto-select first
+  await loadRooms();
+  // auto-select first room if none selected
+  const rSnap = await getDoc(doc(db,'rooms'));
+  // we'll try to pick first existing room from roomsList (rendered)
+  const firstBtn = roomsList.querySelector('.room-btn');
+  if(firstBtn && !currentRoomId) firstBtn.click();
+});
+
+/* ---------- load rooms immediately (public) ---------- */
+loadRooms();
+
+/* ---------- reward system: 5 minutes active => award 1 star ---------- */
+let activeSeconds = 0;
+const ACTIVE_REQUIRED = 60 * 5; // 5 minutes
+function resetActiveTimer(){ activeSeconds = 0; }
+['mousemove','keydown','click','scroll'].forEach(ev => window.addEventListener(ev, resetActiveTimer));
+setInterval(async ()=>{
+  if(!currentUser) return;
+  if(document.hidden) return;
+  activeSeconds++;
+  if(activeSeconds >= ACTIVE_REQUIRED){
+    // award 1 star
+    try{
+      await updateDoc(doc(db,'users',currentUser.uid), { stars: (currentUserDoc && currentUserDoc.data().stars ? currentUserDoc.data().stars + 1 : 1) });
+      // refresh user doc and UI
+      currentUserDoc = await getDoc(doc(db,'users',currentUser.uid));
+      starCountEl.textContent = currentUserDoc.data().stars || 0;
+      starText.textContent = `You earned ⭐ 1 Star!`;
+      starPopup.style.display = 'block';
+      activeSeconds = 0;
+      awardedThisSession++;
+    }catch(e){ console.error(e) }
+  }
+},1000);
+closeStar.onclick = ()=> starPopup.style.display = 'none';
+
+/* ---------- utility ---------- */
+function escapeHtml(s){ if(!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+</script>
 </body>
 </html>
