@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.2/firebas
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.6.2/firebase-firestore.js";
 
-// ---- Firebase Config (new project) ----
+// ---- Firebase Config ----
 const firebaseConfig = {
   apiKey: "AIzaSyDmj1SQvIqI_A83EivlJfDg2z-kyUYIyrM",
   authDomain: "xixichatroomdb.firebaseapp.com",
@@ -32,6 +32,7 @@ const rewardPopup = document.getElementById("reward-popup");
 const logoutBtn = document.getElementById("logout-btn");
 
 let currentUser = null;
+let isAdmin = false;
 let rewardInterval = null;
 
 // ---- Signup ----
@@ -77,12 +78,16 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     loginContainer.classList.add("hidden");
     chatContainer.classList.remove("hidden");
+
     const userDoc = await getDoc(doc(db, "users", user.uid));
     starsCount.textContent = userDoc.data().stars;
+    isAdmin = userDoc.data().admin;
+
     startRewardTimer();
     loadChat();
   } else {
     currentUser = null;
+    isAdmin = false;
     loginContainer.classList.remove("hidden");
     chatContainer.classList.add("hidden");
     clearInterval(rewardInterval);
@@ -100,6 +105,20 @@ async function loadChat() {
       const msgDiv = document.createElement("div");
       msgDiv.classList.add("message");
       msgDiv.textContent = `${data.senderName}: ${data.text}`;
+
+      // Admin buttons
+      if (isAdmin) {
+        const adminDiv = document.createElement("div");
+        adminDiv.classList.add("admin-buttons");
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete";
+        deleteBtn.onclick = async () => await updateDoc(doc(db, "global-messages", doc.id), { deleted: true });
+
+        adminDiv.appendChild(deleteBtn);
+        msgDiv.appendChild(adminDiv);
+      }
+
       chatFeed.appendChild(msgDiv);
     });
     chatFeed.scrollTop = chatFeed.scrollHeight;
